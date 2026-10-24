@@ -12,6 +12,26 @@ interface AuthConfig {
   submit: string;
 }
 
+interface CountryOption {
+  name: string;
+  flag: string;
+}
+
+const countries: CountryOption[] = [
+  { name: 'Uganda', flag: '🇺🇬' },
+  { name: 'Kenya', flag: '🇰🇪' },
+  { name: 'Tanzania', flag: '🇹🇿' },
+  { name: 'Rwanda', flag: '🇷🇼' },
+  { name: 'South Sudan', flag: '🇸🇸' },
+  { name: 'Democratic Republic of the Congo', flag: '🇨🇩' },
+  { name: 'Burundi', flag: '🇧🇮' },
+  { name: 'Nigeria', flag: '🇳🇬' },
+  { name: 'South Africa', flag: '🇿🇦' },
+  { name: 'United Kingdom', flag: '🇬🇧' },
+  { name: 'United States', flag: '🇺🇸' },
+  { name: 'Canada', flag: '🇨🇦' },
+];
+
 const configs: Record<AuthMode, AuthConfig> = {
   login: { title: 'Welcome back', description: 'Sign in to continue to your KCCN portal.', endpoint: '/auth/login', submit: 'Sign in' },
   register: { title: 'Create your account', description: 'Join the KCCN community and keep your church life connected.', endpoint: '/auth/register', submit: 'Create account' },
@@ -28,10 +48,16 @@ const configs: Record<AuthMode, AuthConfig> = {
       <section class="flex items-center justify-center"><div class="w-full max-w-md"><a routerLink="/content" class="mb-12 flex items-center gap-3 font-bold lg:hidden"><span class="grid size-10 place-items-center rounded-xl bg-emerald-400 text-lg text-slate-950">K</span>KCCN Portal</a><p class="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-300">Secure access</p><h1 class="mt-2 text-3xl font-bold">{{ config().title }}</h1><p class="mt-2 text-slate-400">{{ config().description }}</p>
         @if (error()) { <div class="mt-6 rounded-xl border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-200">{{ error() }}</div> }
         @if (success()) { <div class="mt-6 rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3 text-sm text-emerald-200">{{ success() }}</div> }
-        <form (ngSubmit)="submit()" class="mt-8 space-y-4">
-          @if (mode() === 'register') { <div class="grid gap-4 sm:grid-cols-2"><label class="text-sm font-medium text-slate-300">First name<input [(ngModel)]="firstName" name="firstName" required class="field" /></label><label class="text-sm font-medium text-slate-300">Last name<input [(ngModel)]="lastName" name="lastName" required class="field" /></label></div> }
+        <form (ngSubmit)="submit()" class="mt-8 flex flex-col gap-5">
+          @if (mode() === 'register') { <div class="grid gap-5 sm:grid-cols-2"><label class="text-sm font-medium text-slate-300">First name<input [(ngModel)]="firstName" name="firstName" required class="field" /></label><label class="text-sm font-medium text-slate-300">Last name<input [(ngModel)]="lastName" name="lastName" required class="field" /></label></div> }
           @if (mode() === 'otp') { <label class="text-sm font-medium text-slate-300">Verification code<input [(ngModel)]="otp" name="otp" inputmode="numeric" maxlength="8" required class="field tracking-[0.45em]" /></label> } @else { <label class="text-sm font-medium text-slate-300">Email address<input [(ngModel)]="email" name="email" type="email" autocomplete="email" required class="field" /></label> }
-          @if (mode() === 'register') { <label class="text-sm font-medium text-slate-300">Phone number<input [(ngModel)]="phone" name="phone" type="tel" class="field" /></label> }
+          @if (mode() === 'register') {
+            <label class="text-sm font-medium text-slate-300">Phone number<input [(ngModel)]="phone" name="phone" type="tel" required class="field" /></label>
+            <div class="grid gap-5 sm:grid-cols-2">
+              <label class="text-sm font-medium text-slate-300">Gender<select [(ngModel)]="gender" name="gender" required class="field"><option value="" disabled>Select gender</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option><option value="prefer_not_to_say">Prefer not to say</option></select></label>
+              <label class="text-sm font-medium text-slate-300">Country<select [(ngModel)]="country" name="country" required class="field"><option value="" disabled>Select country</option>@for (countryOption of countries; track countryOption.name) { <option [value]="countryOption.name">{{ countryOption.flag }} {{ countryOption.name }}</option> }</select></label>
+            </div>
+          }
           @if (mode() === 'login' || mode() === 'register') { <label class="text-sm font-medium text-slate-300">Password<input [(ngModel)]="password" name="password" type="password" autocomplete="current-password" required class="field" /></label> }
           <button [disabled]="submitting()" class="w-full rounded-lg bg-emerald-400 px-4 py-3 font-bold text-slate-950 disabled:opacity-60">{{ submitting() ? 'Submitting…' : config().submit }}</button>
         </form>
@@ -47,11 +73,14 @@ export class AuthPageComponent {
   readonly mode = signal<AuthMode>((this.route.snapshot.data['mode'] as AuthMode) ?? 'login');
   readonly config = computed(() => configs[this.mode()]);
   readonly submitting = signal(false); readonly error = signal(''); readonly success = signal('');
-  firstName = ''; lastName = ''; email = ''; phone = ''; password = ''; otp = '';
+  readonly countries = countries;
+  firstName = ''; lastName = ''; email = ''; phone = ''; gender = ''; country = 'Uganda'; password = ''; otp = '';
   submit(): void {
     this.submitting.set(true); this.error.set(''); this.success.set('');
     const mode = this.mode();
-    const body = mode === 'register' ? { firstName: this.firstName, lastName: this.lastName, email: this.email, phone: this.phone, password: this.password } : mode === 'otp' ? { code: this.otp } : mode === 'login' ? { email: this.email, password: this.password } : { email: this.email };
+    const body = mode === 'register'
+      ? { firstName: this.firstName, lastName: this.lastName, email: this.email, phone: this.phone, gender: this.gender, country: this.country, password: this.password }
+      : mode === 'otp' ? { code: this.otp } : mode === 'login' ? { email: this.email, password: this.password } : { email: this.email };
     this.api.post(this.config().endpoint, body).subscribe({
       next: (response) => { const token = this.token(response); if (token) this.api.accessToken.set(token); this.success.set(mode === 'login' && token ? 'Signed in. You can now open your portal.' : 'Request submitted successfully.'); this.submitting.set(false); },
       error: (error: Error) => { this.error.set(error.message); this.submitting.set(false); },
