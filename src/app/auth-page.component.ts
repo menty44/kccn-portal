@@ -1,0 +1,61 @@
+import { Component, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ApiService } from './api.service';
+
+type AuthMode = 'login' | 'register' | 'otp' | 'reset';
+
+interface AuthConfig {
+  title: string;
+  description: string;
+  endpoint: string;
+  submit: string;
+}
+
+const configs: Record<AuthMode, AuthConfig> = {
+  login: { title: 'Welcome back', description: 'Sign in to continue to your KCCN portal.', endpoint: '/auth/login', submit: 'Sign in' },
+  register: { title: 'Create your account', description: 'Join the KCCN community and keep your church life connected.', endpoint: '/auth/register', submit: 'Create account' },
+  otp: { title: 'Verify your account', description: 'Enter the verification code sent to your email or phone.', endpoint: '/auth/otp/verify', submit: 'Verify code' },
+  reset: { title: 'Reset your password', description: 'We will send instructions to your registered email address.', endpoint: '/auth/reset-password', submit: 'Send reset link' },
+};
+
+@Component({
+  selector: 'app-auth-page',
+  imports: [FormsModule, RouterLink],
+  template: `
+    <main class="grid min-h-screen bg-slate-950 px-5 py-8 text-slate-100 lg:grid-cols-2 lg:p-0">
+      <section class="hidden flex-col justify-between bg-emerald-400 p-12 text-slate-950 lg:flex"><a routerLink="/content" class="flex items-center gap-3 font-bold"><span class="grid size-10 place-items-center rounded-xl bg-slate-950 text-lg text-emerald-300">K</span>KCCN Portal</a><div><p class="text-sm font-bold uppercase tracking-[0.18em]">Church, connected</p><h1 class="mt-4 max-w-md text-5xl font-black leading-tight">Everything your church needs in one place.</h1><p class="mt-5 max-w-md text-lg leading-8 text-slate-800">Discover sermons, join groups, manage your account, and stay connected with your community.</p></div><p class="text-sm font-medium">Kampala Christian Community Network</p></section>
+      <section class="flex items-center justify-center"><div class="w-full max-w-md"><a routerLink="/content" class="mb-12 flex items-center gap-3 font-bold lg:hidden"><span class="grid size-10 place-items-center rounded-xl bg-emerald-400 text-lg text-slate-950">K</span>KCCN Portal</a><p class="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-300">Secure access</p><h1 class="mt-2 text-3xl font-bold">{{ config().title }}</h1><p class="mt-2 text-slate-400">{{ config().description }}</p>
+        @if (error()) { <div class="mt-6 rounded-xl border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-200">{{ error() }}</div> }
+        @if (success()) { <div class="mt-6 rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3 text-sm text-emerald-200">{{ success() }}</div> }
+        <form (ngSubmit)="submit()" class="mt-8 space-y-4">
+          @if (mode() === 'register') { <div class="grid gap-4 sm:grid-cols-2"><label class="text-sm font-medium text-slate-300">First name<input [(ngModel)]="firstName" name="firstName" required class="field" /></label><label class="text-sm font-medium text-slate-300">Last name<input [(ngModel)]="lastName" name="lastName" required class="field" /></label></div> }
+          @if (mode() === 'otp') { <label class="text-sm font-medium text-slate-300">Verification code<input [(ngModel)]="otp" name="otp" inputmode="numeric" maxlength="8" required class="field tracking-[0.45em]" /></label> } @else { <label class="text-sm font-medium text-slate-300">Email address<input [(ngModel)]="email" name="email" type="email" autocomplete="email" required class="field" /></label> }
+          @if (mode() === 'register') { <label class="text-sm font-medium text-slate-300">Phone number<input [(ngModel)]="phone" name="phone" type="tel" class="field" /></label> }
+          @if (mode() === 'login' || mode() === 'register') { <label class="text-sm font-medium text-slate-300">Password<input [(ngModel)]="password" name="password" type="password" autocomplete="current-password" required class="field" /></label> }
+          <button [disabled]="submitting()" class="w-full rounded-lg bg-emerald-400 px-4 py-3 font-bold text-slate-950 disabled:opacity-60">{{ submitting() ? 'Submitting…' : config().submit }}</button>
+        </form>
+        <div class="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-400">@if (mode() === 'login') { <a routerLink="/register" class="hover:text-emerald-300">Create account</a><a routerLink="/reset-password" class="hover:text-emerald-300">Forgot password?</a> } @else { <a routerLink="/login" class="hover:text-emerald-300">Back to sign in</a> } @if (mode() === 'register') { <a routerLink="/verify-otp" class="hover:text-emerald-300">Already have a code?</a> }</div>
+      </div></section>
+    </main>
+  `,
+  styles: ['.field { display:block; width:100%; margin-top:.4rem; border-radius:.5rem; border:1px solid rgb(255 255 255 / .1); background:#020617; padding:.7rem .8rem; color:white; outline:none; } .field:focus { border-color:#34d399; }'],
+})
+export class AuthPageComponent {
+  private readonly api = inject(ApiService);
+  private readonly route = inject(ActivatedRoute);
+  readonly mode = signal<AuthMode>((this.route.snapshot.data['mode'] as AuthMode) ?? 'login');
+  readonly config = computed(() => configs[this.mode()]);
+  readonly submitting = signal(false); readonly error = signal(''); readonly success = signal('');
+  firstName = ''; lastName = ''; email = ''; phone = ''; password = ''; otp = '';
+  submit(): void {
+    this.submitting.set(true); this.error.set(''); this.success.set('');
+    const mode = this.mode();
+    const body = mode === 'register' ? { firstName: this.firstName, lastName: this.lastName, email: this.email, phone: this.phone, password: this.password } : mode === 'otp' ? { code: this.otp } : mode === 'login' ? { email: this.email, password: this.password } : { email: this.email };
+    this.api.post(this.config().endpoint, body).subscribe({
+      next: (response) => { const token = this.token(response); if (token) this.api.accessToken.set(token); this.success.set(mode === 'login' && token ? 'Signed in. You can now open your portal.' : 'Request submitted successfully.'); this.submitting.set(false); },
+      error: (error: Error) => { this.error.set(error.message); this.submitting.set(false); },
+    });
+  }
+  private token(value: unknown): string { return value !== null && typeof value === 'object' && typeof (value as Record<string, unknown>)['access_token'] === 'string' ? (value as Record<string, string>)['access_token'] : ''; }
+}
