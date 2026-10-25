@@ -1,5 +1,6 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { Observable, throwError } from 'rxjs';
 
 export type PortalRole = 'member' | 'administrator';
@@ -7,10 +8,30 @@ export type PortalRole = 'member' | 'administrator';
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private readonly http = inject(HttpClient);
+  private readonly router = inject(Router);
 
   readonly baseUrl = signal('http://localhost:3000');
   readonly accessToken = signal('');
   readonly role = signal<PortalRole>('member');
+  private expiryTimer?: ReturnType<typeof setTimeout>;
+
+  startSession(accessToken: string, expiresIn?: number): void {
+    this.logout();
+    this.accessToken.set(accessToken);
+    if (expiresIn && expiresIn > 0) {
+      this.expiryTimer = setTimeout(() => {
+        this.logout();
+        void this.router.navigate(['/login']);
+      }, expiresIn * 1000);
+    }
+  }
+
+  logout(): void {
+    if (this.expiryTimer) clearTimeout(this.expiryTimer);
+    this.expiryTimer = undefined;
+    this.accessToken.set('');
+    this.role.set('member');
+  }
 
   get(path: string, requiresAuth = false): Observable<unknown> {
     const baseUrl = this.baseUrl().trim().replace(/\/$/, '');

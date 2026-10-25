@@ -98,7 +98,7 @@ export class AuthPageComponent {
     this.api.post(this.config().endpoint, body).subscribe({
       next: (response) => {
         const token = this.token(response);
-        if (token) this.api.accessToken.set(token);
+        if (token) this.api.startSession(token, this.expiresIn(response));
         if (mode === 'register') {
           const userId = this.userIdFrom(response);
           if (!userId) {
@@ -158,6 +158,12 @@ export class AuthPageComponent {
     const data = response['data'] as Record<string, unknown> | undefined;
     const token = response['access_token'] ?? data?.['access_token'];
     return typeof token === 'string' ? token : '';
+  }
+  private expiresIn(value: unknown): number | undefined {
+    if (value === null || typeof value !== 'object') return undefined;
+    const data = (value as Record<string, unknown>)['data'] as Record<string, unknown> | undefined;
+    const expiresIn = data?.['expires_in'];
+    return typeof expiresIn === 'number' && expiresIn > 0 ? expiresIn : undefined;
   }
   private userIdFrom(value: unknown): number | null {
     if (value === null || typeof value !== 'object') return null;

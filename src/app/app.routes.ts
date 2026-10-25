@@ -6,6 +6,7 @@ import { CommunityPageComponent } from './community-page.component';
 import { ContentPageComponent } from './content-page.component';
 import { DashboardLayoutComponent } from './dashboard-layout.component';
 import { ManagementPageComponent } from './management-page.component';
+import { UserManagementPageComponent } from './user-management-page.component';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'login' },
@@ -20,7 +21,7 @@ export const routes: Routes = [
       { path: 'content', component: ContentPageComponent },
       { path: 'account', component: AccountPageComponent },
       { path: 'community', component: CommunityPageComponent },
-      { path: 'manage/users', component: ManagementPageComponent, data: { section: 'users' }, canActivate: [adminGuard] },
+      { path: 'manage/users', component: UserManagementPageComponent, canActivate: [adminGuard] },
       { path: 'manage/sermons', component: ManagementPageComponent, data: { section: 'sermons' }, canActivate: [adminGuard] },
       { path: 'manage/prayers', component: ManagementPageComponent, data: { section: 'prayers' }, canActivate: [adminGuard] },
       { path: 'manage/events', component: ManagementPageComponent, data: { section: 'events' }, canActivate: [adminGuard] },
